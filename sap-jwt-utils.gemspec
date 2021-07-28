@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "lib/sap/jwt/utils/version"
+require_relative "lib/sap/jwt/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "sap-jwt-utils"
-  spec.version       = Sap::Jwt::Utils::VERSION
+  spec.version       = Sap::Jwt::VERSION
   spec.authors       = ["Richard Anderson"]
   spec.email         = ["richard.anderson@appgyver.com"]
 
