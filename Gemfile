@@ -9,6 +9,7 @@ gemspec
 
 gem "jwt"
 gem "faraday"
+gem "multi_json"
 
 gem "rake", "~> 13.0"
 
