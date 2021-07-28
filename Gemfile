@@ -8,6 +8,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "jwt"
+gem "faraday"
 
 gem "rake", "~> 13.0"
 
@@ -19,3 +20,5 @@ gem 'spring-watcher-listen', '~> 2.0.0'
 
 gem "rubocop", "~> 1.7"
 gem 'rubocop-rspec', require: false
+
+gem "solargraph", require: false
