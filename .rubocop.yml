@@ -15,5 +15,14 @@ Layout/LineLength:
 Style/Documentation:
   Enabled: false
 
+Style/NumericLiterals:
+  Enabled: false
+
 Metrics/BlockLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/ParameterLists:
   Enabled: false
