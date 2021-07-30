@@ -89,9 +89,8 @@ module Sap
 
       payload, header = ::JWT.decode(token, nil, true, options)
 
-      validate_azp!(payload, autorized_party: client_id) if validate_azp?(payload, client_id)
+      validate_azp!(payload, authorized_party: client_id) if validate_azp?(payload, client_id)
       validate_aud!(payload, aud)
-      validate_scope!(payload, scope) if scope
 
       [payload, header]
     end
