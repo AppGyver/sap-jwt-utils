@@ -112,7 +112,7 @@ module Sap
 
       raise FetchJwksError, "Failed to fetch #{jwks_uri}" unless response.success?
 
-      MultiJson.load(response.body, symbolize_names: true)
+      MultiJson.load(response.body, symbolize_keys: true)
     end
 
     # Authentication endpoint info (tenant specific)
@@ -123,7 +123,7 @@ module Sap
 
       raise FetchOpenIdConfigurationError, "Failed to fetch #{url}" unless response.success?
 
-      MultiJson.load(response.body, symbolize_names: true)
+      MultiJson.load(response.body, symbolize_keys: true)
     end
 
     # Validate Authorized Party
