@@ -98,9 +98,9 @@ RSpec.describe Sap::Jwt do
       # 2021-07-30T15:15:00
       let(:issued_at) { Time.local(2021, 7, 30, 15, 15, 0) }
 
-      it "parses jwt of server-to-server communication" do
+      it "verifies jwt of server-to-server communication" do
         Timecop.freeze(issued_at) do
-          p, h = described_class.parse!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
+          p, h = described_class.verify!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
 
           expect(p).to eq payload
           expect(h).to eq header
@@ -186,9 +186,9 @@ RSpec.describe Sap::Jwt do
       let(:client_id) { "sb-xsuaa-for-development!t30010" }
       let(:aud) { client_id }
 
-      it "parses jwt of user authentication" do
+      it "verifies jwt of user authentication" do
         Timecop.freeze(issued_at) do
-          p, h = described_class.parse!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
+          p, h = described_class.verify!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
 
           expect(p).to eq payload
           expect(h).to eq header
@@ -270,7 +270,7 @@ RSpec.describe Sap::Jwt do
       end
 
       it "returns json" do
-        expect(described_class.fetch_openid_configuration(site, path))
+        expect(described_class.fetch_openid_configuration(url))
           .to eq(body_parsed)
       end
     end
@@ -284,7 +284,7 @@ RSpec.describe Sap::Jwt do
 
       it "raises FetchOpenIdConfigurationError" do
         expect do
-          described_class.fetch_openid_configuration(site, path)
+          described_class.fetch_openid_configuration(url)
         end.to raise_error Sap::Jwt::FetchOpenIdConfigurationError
       end
     end

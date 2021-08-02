@@ -76,7 +76,7 @@ module Sap
     #   "iss"=> "https://appgyver-int.authentication.sap.hana.ondemand.com/oauth/token",
     #   "zid"=>"20f2417e-38ef-4007-9d66-d990b9c994ab",
     #   "aud"=>["openid", "sap-auth-playground!t30010"]}
-    def self.parse!(token, iss:, aud:, jwks:, client_id:, verify_iss: true, verify_aud: true, verify_iat: true, algorithms: ["RS256"])
+    def self.verify!(token, iss:, aud:, jwks:, client_id:, verify_iss: true, verify_aud: true, verify_iat: true, algorithms: ["RS256"])
       options = {
         verify_iss: verify_iss,
         iss: iss,
@@ -105,8 +105,8 @@ module Sap
     # and not customer-controlled domains.
     #
     # https://github.wdf.sap.corp/pages/CPSecurity/Knowledge-Base/03_ApplicationSecurity/TokenValidation/#get-token-keys-url-jwks-url
-    def self.fetch_jwks(site)
-      jwks_uri = fetch_openid_configuration(site)[:jwks_uri]
+    def self.fetch_jwks(url, jwk_attr_name: "jwks_uri")
+      jwks_uri = fetch_openid_configuration(url)[jwk_attr_name.to_sym]
 
       response = Faraday.get(jwks_uri, request_headers)
 
@@ -118,8 +118,7 @@ module Sap
     # Authentication endpoint info (tenant specific)
     #
     # https://TENANT.authentication.sap.hana.ondemand.com/.well-known/openid-configuration
-    def self.fetch_openid_configuration(site, path = "/.well-known/openid-configuration")
-      url = "#{site}#{path}"
+    def self.fetch_openid_configuration(url)
       response = Faraday.get(url, request_headers)
 
       raise FetchOpenIdConfigurationError, "Failed to fetch #{url}" unless response.success?

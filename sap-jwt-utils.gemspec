@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description   = "SAP JWT Utils"
   spec.homepage      = "https://github.com/appgyver/sap-jwt-utils"
   spec.license       = "MIT"
-  spec.required_ruby_version = Gem::Requirement.new(">= 2.4.0")
+  spec.required_ruby_version = Gem::Requirement.new(">= 2.7.0")
 
   spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
 
@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "jwt"
   spec.add_dependency "faraday"
+  spec.add_dependency "jwt"
   spec.add_dependency "multi_json"
 end
