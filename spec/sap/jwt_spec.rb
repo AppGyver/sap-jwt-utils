@@ -195,6 +195,24 @@ RSpec.describe Sap::Jwt do
         end
       end
     end
+
+    context "with JWT errors" do
+      it "throws Sap::Jwt::VerificationError when JWT decode fails" do
+        allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
+
+        expect do
+          described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+        end.to raise_error(Sap::Jwt::VerificationError)
+      end
+
+      it "throws Sap::Jwt::VerificationError when JWT signature has expired" do
+        allow(::JWT).to receive(:decode).and_raise(JWT::ExpiredSignature)
+
+        expect do
+          described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+        end.to raise_error(Sap::Jwt::VerificationError)
+      end
+    end
   end
 
   describe ".fetch_jwks" do

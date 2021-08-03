@@ -13,15 +13,17 @@ require "multi_json"
 # https://github.wdf.sap.corp/pages/CPSecurity/Knowledge-Base/03_ApplicationSecurity/TokenValidation/
 module Sap
   module Jwt
-    class FetchJwksError < StandardError; end
+    class VerificationError < StandardError; end
 
-    class FetchOpenIdConfigurationError < StandardError; end
+    class FetchJwksError < VerificationError; end
 
-    class MissingAccessTokenError < StandardError; end
+    class FetchOpenIdConfigurationError < VerificationError; end
 
-    class AuthorizedPartyValidationFailure < StandardError; end
+    class MissingAccessTokenError < VerificationError; end
 
-    class AudienceValidationFailure < StandardError; end
+    class AuthorizedPartyValidationFailure < VerificationError; end
+
+    class AudienceValidationFailure < VerificationError; end
 
     def self.request_headers
       {
@@ -93,6 +95,8 @@ module Sap
       validate_aud!(payload, aud)
 
       [payload, header]
+    rescue JWT::DecodeError => e
+      raise VerificationError, e
     end
 
     # Fetch one or multiple JWKs which are used for verifying the token signature.
