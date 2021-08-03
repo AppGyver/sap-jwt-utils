@@ -3,7 +3,7 @@
 RSpec.describe Sap::Jwt do
   let(:site) { "https://subdomain-something.example.com" }
   let(:path) { "/.well-known/test-openid-configuration" }
-  let(:url) { [site, path].join }
+  let(:oidc_url) { [site, path].join }
 
   let(:default_headers) do
     {
@@ -216,7 +216,7 @@ RSpec.describe Sap::Jwt do
   end
 
   describe ".fetch_jwks" do
-    let(:jwks_uri) { "https://sap-provisioning.authentication.sap.example.com/token_keys" }
+    let(:jwks_url) { "https://sap-provisioning.authentication.sap.example.com/token_keys" }
     let(:response) { instance_double(Faraday::Response) }
     let(:body_string) { '{"it": "works, jwk here"}' }
     let(:body_parsed) { { it: "works, jwk here" } }
@@ -224,16 +224,12 @@ RSpec.describe Sap::Jwt do
     before do
       allow(Faraday)
         .to receive(:get)
-        .with(jwks_uri, default_headers)
+        .with(jwks_url, default_headers)
         .and_return response
 
       allow(response)
         .to receive(:body)
         .and_return body_string
-
-      allow(described_class)
-        .to receive(:fetch_openid_configuration)
-        .and_return({ jwks_uri: jwks_uri })
     end
 
     context "when success" do
@@ -244,7 +240,7 @@ RSpec.describe Sap::Jwt do
       end
 
       it "returns json" do
-        expect(described_class.fetch_jwks(site))
+        expect(described_class.fetch_jwks(jwks_url))
           .to eq(body_parsed)
       end
     end
@@ -258,7 +254,7 @@ RSpec.describe Sap::Jwt do
 
       it "raises FetchJwksError" do
         expect do
-          described_class.fetch_jwks(site)
+          described_class.fetch_jwks(jwks_url)
         end.to raise_error Sap::Jwt::FetchJwksError
       end
     end
@@ -272,7 +268,7 @@ RSpec.describe Sap::Jwt do
     before do
       allow(Faraday)
         .to receive(:get)
-        .with(url, default_headers)
+        .with(oidc_url, default_headers)
         .and_return response
 
       allow(response)
@@ -288,7 +284,7 @@ RSpec.describe Sap::Jwt do
       end
 
       it "returns json" do
-        expect(described_class.fetch_openid_configuration(url))
+        expect(described_class.fetch_openid_configuration(oidc_url))
           .to eq(body_parsed)
       end
     end
@@ -302,7 +298,7 @@ RSpec.describe Sap::Jwt do
 
       it "raises FetchOpenIdConfigurationError" do
         expect do
-          described_class.fetch_openid_configuration(url)
+          described_class.fetch_openid_configuration(oidc_url)
         end.to raise_error Sap::Jwt::FetchOpenIdConfigurationError
       end
     end
