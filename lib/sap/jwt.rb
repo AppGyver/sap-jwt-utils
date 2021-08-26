@@ -17,6 +17,8 @@ module Sap
 
     class FetchJwksError < VerificationError; end
 
+    class FetchUserTokenError < VerificationError; end
+
     class FetchOpenIdConfigurationError < VerificationError; end
 
     class MissingAccessTokenError < VerificationError; end
@@ -124,6 +126,33 @@ module Sap
       response = Faraday.get(url, request_headers)
 
       raise FetchOpenIdConfigurationError, "Failed to fetch #{url}" unless response.success?
+
+      MultiJson.load(response.body, symbolize_keys: true)
+    end
+
+    # Fetch JWT User Token which using the UAA specific "urn:ietf:params:oauth:grant-type:jwt-bearer"
+    # flow. The User Token contains detailed role names in its "scopes" claim.
+    #
+    # SAP documentation:
+    # https://help.sap.com/viewer/cca91383641e40ffbe03bdc78f00f681/Cloud/en-US/39f538ad62e144c58c056ebc34bb6890.html
+    def self.fetch_jwt_bearer_token(url, client_id:, client_secret:, assertion:)
+      response = Faraday.post(url) do |req|
+        req.headers = {
+          "Content-Type" => "application/x-www-form-urlencoded"
+        }
+        req.body = URI.encode_www_form(
+          {
+            client_id: client_id,
+            client_secret: client_secret,
+            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            token_format: "jwt",
+            response_type: "token",
+            assertion: assertion
+          }
+        )
+      end
+
+      raise FetchUserTokenError, "Failed to fetch jwt-bearer token: #{response.body}" unless response.success?
 
       MultiJson.load(response.body, symbolize_keys: true)
     end
