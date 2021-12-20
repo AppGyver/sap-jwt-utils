@@ -227,6 +227,24 @@ RSpec.describe Sap::Jwt do
           expect(::JWT).to have_received(:decode)
         end
       end
+
+      context "when uaadomain does not match with jwk url hostname" do
+        it "raises Sap::Jwt::VerificationError" do
+          expect do
+            described_class.verify_with_headers!(token, aud: aud, uaadomain: "something-else.local")
+          end.to raise_error(Sap::Jwt::VerificationError, /JWK source '.+' does not match .+/)
+        end
+      end
+
+      context "when aud does not match" do
+        it "raises Sap::Jwt::VerificationError" do
+          VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
+            expect do
+              described_class.verify_with_headers!(token, aud: "invalid-aud", uaadomain: uaadomain)
+            end.to raise_error(Sap::Jwt::VerificationError, /Invalid audience/)
+          end
+        end
+      end
     end
   end
 
