@@ -83,18 +83,42 @@ module Sap
     def self.verify!(token, iss:, aud:, jwks:, client_id: nil, verify_iss: true, verify_aud: true, verify_iat: true, algorithms: ["RS256"])
       options = {
         verify_iss: verify_iss,
-        iss: iss,
         verify_iat: verify_iat,
         verify_aud: verify_aud,
         aud: aud,
         algorithms: algorithms,
-        jwks: jwks # Pass JWKs directly or fetch JWKs with .fetch_jwks() before calling .parse
+        jwks: jwks,
+        iss: iss
       }
 
       payload, header = ::JWT.decode(token, nil, true, options)
 
       validate_azp!(payload, authorized_party: client_id) if validate_azp?(payload, client_id)
       validate_aud!(payload, aud)
+
+      [payload, header]
+    rescue JWT::DecodeError => e
+      raise VerificationError, e
+    end
+
+    def self.verify_with_headers!(token, aud:, uaadomain:, algorithms: ["RS256"])
+      jwks_uri = nil
+
+      options = {
+        verify_iat: true,
+        verify_aud: true,
+        aud: aud,
+        algorithms: algorithms,
+        jwks: ->(_opts) { fetch_jwks(jwks_uri) },
+        verify_iss: false, # trusted value of issuer is not available with header verification
+        iss: nil
+      }
+
+      payload, header = ::JWT.decode(token, nil, true, options) do |headers, payload|
+        jwks_uri = parse_jku!(headers, payload, uaadomain)
+
+        true
+      end
 
       [payload, header]
     rescue JWT::DecodeError => e
@@ -112,6 +136,8 @@ module Sap
     #
     # https://github.wdf.sap.corp/pages/CPSecurity/Knowledge-Base/03_ApplicationSecurity/TokenValidation/#get-token-keys-url-jwks-url
     def self.fetch_jwks(url)
+      raise FetchJwksError, "Missing JWK URL: Could not fetch JWKs" unless url
+
       response = Faraday.get(url, request_headers)
 
       raise FetchJwksError, "Failed to fetch #{url}" unless response.success?
@@ -123,6 +149,8 @@ module Sap
     #
     # https://TENANT.authentication.sap.hana.ondemand.com/.well-known/openid-configuration
     def self.fetch_openid_configuration(url)
+      raise FetchOpenIdConfigurationError, "Missing OpenID Configuration metadata URL" unless url
+
       response = Faraday.get(url, request_headers)
 
       raise FetchOpenIdConfigurationError, "Failed to fetch #{url}" unless response.success?
@@ -155,6 +183,33 @@ module Sap
       raise FetchUserTokenError, "Failed to fetch jwt-bearer token: #{response.body}" unless response.success?
 
       MultiJson.load(response.body, symbolize_keys: true)
+    end
+
+    # Parse JWK uri from JWT headers.
+    # Raise error
+    # - if hostname for JWK source (jku) does not match hostname of the token's issuer (iss)
+    # - if JWK source (jku) hostname is outside of trusted uaadomain (originally provided by XSUAA)
+    #
+    # Returns JWK source url as string, for example
+    # => "https://sub-dev-btp-gyver.authentication.sap.hana.ondemand.com/token_keys"
+    private_class_method def self.parse_jku!(headers, payload, uaadomain)
+      jku = URI.parse(headers["jku"])
+      iss = URI.parse(payload["iss"])
+
+      unless jku.hostname.end_with?(uaadomain)
+        raise VerificationError, "JWK source '#{jku}' does not match tenant's uaadomain '#{uaadomain}'"
+      end
+
+      unless jku.hostname == iss.hostname
+        raise VerificationError, <<-ERROR.squish
+          JWK issuer hostname '#{iss.hostname}'
+          does not match JWK source hostname '#{jwk.hostname}'
+        ERROR
+      end
+
+      jku.to_s
+    rescue URI::InvalidURIError => e
+      raise VerificationError, "Invalid URI from JWT: #{e}"
     end
 
     # Validate Authorized Party

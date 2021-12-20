@@ -1,0 +1,51 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://sub-dev-btp-gyver.authentication.sap.hana.ondemand.com/token_keys?User-Agent=appgyver/sap-jwt
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      User-Agent:
+      - Faraday v1.5.1
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 20 Dec 2021 12:17:06 GMT
+      Etag:
+      - '"1633522926231"'
+      Expires:
+      - '0'
+      Pragma:
+      - no-cache
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - DENY
+      X-Vcap-Request-Id:
+      - 94420fc7-5cb0-4833-7ffd-f437615b6b8c
+      X-Xss-Protection:
+      - 1; mode=block
+      Transfer-Encoding:
+      - chunked
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload;
+    body:
+      encoding: UTF-8
+      string: '{"keys":[{"kty":"RSA","e":"AQAB","use":"sig","kid":"default-jwt-key--57481397","alg":"RS256","value":"-----BEGIN
+        PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdxPcf63K8o9lOwRkIur\nmx9e0bdZI+4KQrwJ1YL/DWghEWv2HlQx9txxg/IVi7e90/3mbQcOIAsBB/42ZVUq\nvD9nJWJprI7sPyy334Cw88QAciGO4wZu+JBtQXDNjt43dhjqSbApHGrRLkIhLrDI\nj8dubDYDxI2HpRuGm5+0vPr2QxgUDXLmnF2gTYcb+pWONlzLjzajFW4Hd+jmecY5\nNe0crt4szKbmtuMWEP1hcsTCNX6im2xHf/tvAkun1y6IRtjVDT15QVhIrsTo/Z8y\nwyVrQKe/uiJY+wptWnFkccC1gurNLx75h+ETUm1VPoWvTjudSeEP+kqrwGEOmAvo\nXQIDAQAB\n-----END
+        PUBLIC KEY-----","n":"ALXcT3H-tyvKPZTsEZCLq5sfXtG3WSPuCkK8CdWC_w1oIRFr9h5UMfbccYPyFYu3vdP95m0HDiALAQf-NmVVKrw_ZyViaayO7D8st9-AsPPEAHIhjuMGbviQbUFwzY7eN3YY6kmwKRxq0S5CIS6wyI_Hbmw2A8SNh6UbhpuftLz69kMYFA1y5pxdoE2HG_qVjjZcy482oxVuB3fo5nnGOTXtHK7eLMym5rbjFhD9YXLEwjV-optsR3_7bwJLp9cuiEbY1Q09eUFYSK7E6P2fMsMla0Cnv7oiWPsKbVpxZHHAtYLqzS8e-YfhE1JtVT6Fr047nUnhD_pKq8BhDpgL6F0"}]}'
+  recorded_at: Fri, 17 Dec 2021 11:36:50 GMT
+recorded_with: VCR 6.0.0

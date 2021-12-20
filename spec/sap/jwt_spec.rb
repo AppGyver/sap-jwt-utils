@@ -22,12 +22,12 @@ RSpec.describe Sap::Jwt do
     end
   end
 
-  describe ".parse" do
+  describe ".verify!" do
     let(:jwks_json) do
       MultiJson.load(jwks_str, symbolize_names: true)
     end
 
-    context "client_credentials grant type" do
+    context "when successful" do
       let(:jwks_str) do
         '{
             "keys": [{
@@ -106,111 +106,126 @@ RSpec.describe Sap::Jwt do
           expect(h).to eq header
         end
       end
-    end
 
-    context "with authorization_code grant type" do
-      let(:jwks_str) do
-        '{
-          "keys": [{
-            "kty": "RSA",
-            "e": "AQAB",
-            "use": "sig",
-            "kid": "default-jwt-key--1137935149",
-            "alg": "RS256",
-            "value": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4UCgAtdjWTjG6qHjcdob\nsjk06JsQ6BWd20Q3yutK5n3+e6FCQlpXyBEN0pMIpNjWBx6/85HW/k2vwauwqQCC\nB4I00HgFXKDjWrktv1eve5MNiWNI1+InXLIQ72gZUVcUi9IjhN/0e/hDcALCIeVN\nTbW4ZHDqj5wZ5beP/9EzZWYP/sHT1XkWu/8deiT8bq1SysKtYxpt1WG01zqEaSSE\nOmsZ1tp/gzsbfYTCj+xs10Qmax4TP9AhaAsGY714GAU5w+8Nk2yAfUr+AFn8bQXN\nK46RwVqI83ZL6N70SiQy02mcsw4VVUaAhB1NnrkCfL2Wrmohw9lQOfEtYBrnoxEM\nLwIDAQAB\n-----END PUBLIC KEY-----",
-            "n": "AOFAoALXY1k4xuqh43HaG7I5NOibEOgVndtEN8rrSuZ9_nuhQkJaV8gRDdKTCKTY1gcev_OR1v5Nr8GrsKkAggeCNNB4BVyg41q5Lb9Xr3uTDYljSNfiJ1yyEO9oGVFXFIvSI4Tf9Hv4Q3ACwiHlTU21uGRw6o-cGeW3j__RM2VmD_7B09V5Frv_HXok_G6tUsrCrWMabdVhtNc6hGkkhDprGdbaf4M7G32Ewo_sbNdEJmseEz_QIWgLBmO9eBgFOcPvDZNsgH1K_gBZ_G0FzSuOkcFaiPN2S-je9EokMtNpnLMOFVVGgIQdTZ65Any9lq5qIcPZUDnxLWAa56MRDC8"
-          }]
-        }'
+      context "when JWT decode fails" do
+        it "throws Sap::Jwt::VerificationError" do
+          allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
+
+          expect do
+            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+          end.to raise_error(Sap::Jwt::VerificationError)
+        end
       end
 
+      context "when JWT signature has expired" do
+        it "throws Sap::Jwt::VerificationError" do
+          allow(::JWT).to receive(:decode).and_raise(JWT::ExpiredSignature)
+
+          expect do
+            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+          end.to raise_error(Sap::Jwt::VerificationError)
+        end
+      end
+    end
+  end
+
+  describe "verify_with_headers!" do
+    context "when successful" do
       let(:token) do
-        "eyJhbGciOiJSUzI1NiIsImprdSI6Imh0dHBzOi8vYXBwZ3l2ZXItaW50LmF1dGhlbnRpY2F0aW9uLnNhcC5oYW5hLm9uZGVtYW5kLmNvbS90b2tlbl9rZXlzIiwia2lkIjoiZGVmYXVsdC1qd3Qta2V5LS0xMTM3OTM1MTQ5IiwidHlwIjoiSldUIn0.eyJqdGkiOiI4OGNiNWY5NWQ5OWU0OTYxOWEyYWM1NzVmYWUyOTU0MCIsImV4dF9hdHRyIjp7ImVuaGFuY2VyIjoiWFNVQUEiLCJzdWJhY2NvdW50aWQiOiIwNmMwYWQ3NC1kMjI0LTQ2M2MtYjQ2ZS01ZjRkOWM0YmJjMTUiLCJ6ZG4iOiJhcHBneXZlci1pbnQifSwieHMuc3lzdGVtLmF0dHJpYnV0ZXMiOnsieHMucm9sZWNvbGxlY3Rpb25zIjpbIkRlc3RpbmF0aW9uIEFkbWluaXN0cmF0b3IiLCJDbG91ZCBDb25uZWN0b3IgQWRtaW5pc3RyYXRvciIsIlN1YmFjY291bnQgQWRtaW5pc3RyYXRvciIsIkNvbm5lY3Rpdml0eSBhbmQgRGVzdGluYXRpb24gQWRtaW5pc3RyYXRvciJdfSwiZ2l2ZW5fbmFtZSI6IlBldHJ1cyIsInhzLnVzZXIuYXR0cmlidXRlcyI6e30sImZhbWlseV9uYW1lIjoiUmVwbyIsInN1YiI6IjY1OTQ0NGIyLTM3MmYtNDY5ZC1hZDlmLTQ5MzgyN2Y3NTlhNCIsInNjb3BlIjpbIm9wZW5pZCJdLCJjbGllbnRfaWQiOiJzYi14c3VhYS1mb3ItZGV2ZWxvcG1lbnQhdDMwMDEwIiwiY2lkIjoic2IteHN1YWEtZm9yLWRldmVsb3BtZW50IXQzMDAxMCIsImF6cCI6InNiLXhzdWFhLWZvci1kZXZlbG9wbWVudCF0MzAwMTAiLCJncmFudF90eXBlIjoiYXV0aG9yaXphdGlvbl9jb2RlIiwidXNlcl9pZCI6IjY1OTQ0NGIyLTM3MmYtNDY5ZC1hZDlmLTQ5MzgyN2Y3NTlhNCIsIm9yaWdpbiI6InNhcC5kZWZhdWx0IiwidXNlcl9uYW1lIjoicGV0cnVzLnJlcG9Ac2FwLmNvbSIsImVtYWlsIjoicGV0cnVzLnJlcG9Ac2FwLmNvbSIsImF1dGhfdGltZSI6MTYyNzY2MzQ2NSwicmV2X3NpZyI6ImIyMzg0MDYwIiwiaWF0IjoxNjI3NjYzNzgxLCJleHAiOjE2MjgyNjg1ODEsImlzcyI6Imh0dHBzOi8vYXBwZ3l2ZXItaW50LmF1dGhlbnRpY2F0aW9uLnNhcC5oYW5hLm9uZGVtYW5kLmNvbS9vYXV0aC90b2tlbiIsInppZCI6IjIwZjI0MTdlLTM4ZWYtNDAwNy05ZDY2LWQ5OTBiOWM5OTRiNCIsImF1ZCI6WyJvcGVuaWQiLCJzYi14c3VhYS1mb3ItZGV2ZWxvcG1lbnQhdDMwMDEwIl19.TZJqXOEnZkKtm4VMESDmNWq-o7o-Uak7UI7i-h7FSoRjDshauk6wseEHK0B2-_olRHeKfvw13yGnUAIxCtK-mlyOasxYtUGxVG5f_uj1z2oxYas9PwxbD8nlKKc4TkVeSMWiO60NRHZzmXC63zIcjMilJvcpDeM9TJdaxS8BDiS5Xrspzw_h16mP468cwRoWOu3bGjs_FL3HM2DT-O721RgitfNeLrYpFH9p-wadbL8XYU9wH5q7HYUqk2NU9JQfXVncv0WFqff3NiGGU8FYh3gQb1OFmaSjasbRngIpeUcNUOXvsugct6qSZZjjWbRGY1qLfOwdEuAbiJAYUr38XQ"
+        "eyJhbGciOiJSUzI1NiIsImprdSI6Imh0dHBzOi8vc3ViLWRldi1idHAtZ3l2ZXIuYXV0aGVudGljYXRpb24uc2FwLmhhbmEub25kZW1hbmQuY29tL3Rva2VuX2tleXMiLCJraWQiOiJkZWZhdWx0LWp3dC1rZXktLTU3NDgxMzk3IiwidHlwIjoiSldUIn0.eyJqdGkiOiI5ZTk2MGMyNDI5MmM0ZDI2YjU3NTc1ZjFhN2YyNTcyYSIsImV4dF9hdHRyIjp7ImVuaGFuY2VyIjoiWFNVQUEiLCJzdWJhY2NvdW50aWQiOiJkMzk5MjBlYi0xZTZmLTQ3NzUtOGIzYS0wNDQwODBhMmUyZDYiLCJ6ZG4iOiJzdWItZGV2LWJ0cC1neXZlciIsInNlcnZpY2VpbnN0YW5jZWlkIjoiZmEyNmI4OWMtNWM2Yi00N2ZmLThmMDItN2UyMTVkYzljMmQ1In0sInhzLnN5c3RlbS5hdHRyaWJ1dGVzIjp7InhzLnJvbGVjb2xsZWN0aW9ucyI6WyJMQ05DIEFkbWluaXN0cmF0b3IiLCJTdWJhY2NvdW50IEFkbWluaXN0cmF0b3IiXX0sImdpdmVuX25hbWUiOiJQZXRydXMiLCJ4cy51c2VyLmF0dHJpYnV0ZXMiOnt9LCJmYW1pbHlfbmFtZSI6IlJlcG8iLCJzdWIiOiJkMTY2NzI1MC0zNjBiLTRmZDUtYTdmYi1hNjEzMDZmNDhmNDYiLCJzY29wZSI6WyJkZXYtYnRwLWd5dmVyIWIzNzM0NS5hZG1pbiIsIm9wZW5pZCJdLCJjbGllbnRfaWQiOiJzYi1mYTI2Yjg5Yy01YzZiLTQ3ZmYtOGYwMi03ZTIxNWRjOWMyZDUhYjM3MzQ1fGRldi1idHAtZ3l2ZXIhYjM3MzQ1IiwiY2lkIjoic2ItZmEyNmI4OWMtNWM2Yi00N2ZmLThmMDItN2UyMTVkYzljMmQ1IWIzNzM0NXxkZXYtYnRwLWd5dmVyIWIzNzM0NSIsImF6cCI6InNiLWZhMjZiODljLTVjNmItNDdmZi04ZjAyLTdlMjE1ZGM5YzJkNSFiMzczNDV8ZGV2LWJ0cC1neXZlciFiMzczNDUiLCJncmFudF90eXBlIjoidXJuOmlldGY6cGFyYW1zOm9hdXRoOmdyYW50LXR5cGU6and0LWJlYXJlciIsInVzZXJfaWQiOiJkMTY2NzI1MC0zNjBiLTRmZDUtYTdmYi1hNjEzMDZmNDhmNDYiLCJvcmlnaW4iOiJzYXAuZGVmYXVsdCIsInVzZXJfbmFtZSI6InBldHJ1cy5yZXBvQHNhcC5jb20iLCJlbWFpbCI6InBldHJ1cy5yZXBvQHNhcC5jb20iLCJyZXZfc2lnIjoiMzc1ZTczYWIiLCJpYXQiOjE2Mzk3NDEwMTAsImV4cCI6MTY0MDM0NTgxMCwiaXNzIjoiaHR0cHM6Ly9zdWItZGV2LWJ0cC1neXZlci5hdXRoZW50aWNhdGlvbi5zYXAuaGFuYS5vbmRlbWFuZC5jb20vb2F1dGgvdG9rZW4iLCJ6aWQiOiIwZTcxYjIxNC00YzBlLTQ3ZTAtOWNhMS03YzRhODkyZGNlYTkiLCJhdWQiOlsic2ItZmEyNmI4OWMtNWM2Yi00N2ZmLThmMDItN2UyMTVkYzljMmQ1IWIzNzM0NXxkZXYtYnRwLWd5dmVyIWIzNzM0NSIsImRldi1idHAtZ3l2ZXIhYjM3MzQ1Iiwib3BlbmlkIl19.Uip_-Kpi0Rxmjk02hq1qnNkt5dt3MSYajrgfs1yAZ5B58Aq8a_QQwBd8Esd2_HwhblOfMtcP-DpME7abnC38_VRGuh6SUMnG-UxVOvROmmS8O0kxaG1XFMR1EVK2bM5fFR5ov0K7RjNPBwufNkhzVWdwLbE6xp67Q-LtoUg8XxBemihg1l9vF3KZTiZk91VY39CFAYydp3cKkeVke0LQBOX7HnFAOuRpiUD9wQ_k1Fa6gCt4EeD7hnPaEI0NsUmRWCEtUsz9dQ7QVWQnGdKBfOxXYCwbStjLUY4CypYf0v4C-uPZgHtl1HdDI4YwCllfXR7xvumC96TFGTjHZRP5qQ"
       end
 
       let(:header) do
         {
           "typ" => "JWT",
           "alg" => "RS256",
-          "jku" => "https://appgyver-int.authentication.sap.hana.ondemand.com/token_keys",
-          "kid" => "default-jwt-key--1137935149"
+          "jku" => "https://sub-dev-btp-gyver.authentication.sap.hana.ondemand.com/token_keys",
+          "kid" => "default-jwt-key--57481397"
         }
       end
 
       let(:payload) do
         {
           "aud" => [
-            "openid",
-            "sb-xsuaa-for-development!t30010"
+            "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345",
+            "dev-btp-gyver!b37345",
+            "openid"
           ],
-          "auth_time" => 1627663465,
-          "azp" => "sb-xsuaa-for-development!t30010",
-          "cid" => "sb-xsuaa-for-development!t30010",
-          "client_id" => "sb-xsuaa-for-development!t30010",
+          "azp" => "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345",
+          "cid" => "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345",
+          "client_id" => "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345",
           "email" => "petrus.repo@sap.com",
-          "exp" => 1628268581,
+          "exp" => 1640345810,
           "ext_attr" => {
             "enhancer" => "XSUAA",
-            "subaccountid" => "06c0ad74-d224-463c-b46e-5f4d9c4bbc15",
-            "zdn" => "appgyver-int"
+            "serviceinstanceid" => "fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5",
+            "subaccountid" => "d39920eb-1e6f-4775-8b3a-044080a2e2d6",
+            "zdn" => "sub-dev-btp-gyver"
           },
           "family_name" => "Repo",
           "given_name" => "Petrus",
-          "grant_type" => "authorization_code",
-          "iat" => 1627663781,
-          "iss" => "https://appgyver-int.authentication.sap.hana.ondemand.com/oauth/token",
-          "jti" => "88cb5f95d99e49619a2ac575fae29540",
+          "grant_type" => "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          "iat" => 1639741010,
+          "iss" => "https://sub-dev-btp-gyver.authentication.sap.hana.ondemand.com/oauth/token",
+          "jti" => "9e960c24292c4d26b57575f1a7f2572a",
           "origin" => "sap.default",
-          "rev_sig" => "b2384060",
+          "rev_sig" => "375e73ab",
           "scope" => [
+            "dev-btp-gyver!b37345.admin",
             "openid"
           ],
-          "sub" => "659444b2-372f-469d-ad9f-493827f759a4",
-          "user_id" => "659444b2-372f-469d-ad9f-493827f759a4",
+          "sub" => "d1667250-360b-4fd5-a7fb-a61306f48f46",
+          "user_id" => "d1667250-360b-4fd5-a7fb-a61306f48f46",
           "user_name" => "petrus.repo@sap.com",
           "xs.system.attributes" => {
             "xs.rolecollections" => [
-              "Destination Administrator",
-              "Cloud Connector Administrator",
-              "Subaccount Administrator",
-              "Connectivity and Destination Administrator"
+              "LCNC Administrator",
+              "Subaccount Administrator"
             ]
           },
           "xs.user.attributes" => {},
-          "zid" => "20f2417e-38ef-4007-9d66-d990b9c994b4"
+          "zid" => "0e71b214-4c0e-47e0-9ca1-7c4a892dcea9"
         }
       end
 
-      # 2021-07-30 19:49:42
-      let(:issued_at) { Time.local(2021, 7, 30, 19, 49, 42) }
-      let(:iss) { "https://appgyver-int.authentication.sap.hana.ondemand.com/oauth/token" }
-      let(:client_id) { "sb-xsuaa-for-development!t30010" }
-      let(:aud) { client_id }
+      let(:issued_at) { 1639741010 }
+      let(:now) { Time.at(issued_at) }
+      let(:aud) { "dev-btp-gyver!b37345" }
+      let(:uaadomain) { "authentication.sap.hana.ondemand.com" }
 
-      it "verifies jwt of user authentication" do
-        Timecop.freeze(issued_at) do
-          p, h = described_class.verify!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
+      it "verifies jwt with jwks fetched from the header" do
+        VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
+          Timecop.freeze(now) do
+            p, h = described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
 
-          expect(p).to eq payload
-          expect(h).to eq header
+            expect(p).to eq payload
+            expect(h).to eq header
+          end
         end
       end
-    end
 
-    context "with JWT errors" do
-      it "throws Sap::Jwt::VerificationError when JWT decode fails" do
-        allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
+      context "when JWT decode fails" do
+        it "throws Sap::Jwt::VerificationError" do
+          allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
 
-        expect do
-          described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
-        end.to raise_error(Sap::Jwt::VerificationError)
+          expect do
+            described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
+          end.to raise_error(Sap::Jwt::VerificationError)
+        end
       end
 
-      it "throws Sap::Jwt::VerificationError when JWT signature has expired" do
-        allow(::JWT).to receive(:decode).and_raise(JWT::ExpiredSignature)
+      context "when JWT signature has expired" do
+        before do
+          allow(::JWT).to receive(:decode).and_raise(JWT::ExpiredSignature)
+        end
 
-        expect do
-          described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
-        end.to raise_error(Sap::Jwt::VerificationError)
+        it "throws Sap::Jwt::VerificationError" do
+          expect do
+            described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
+          end.to raise_error(Sap::Jwt::VerificationError)
+
+          expect(::JWT).to have_received(:decode)
+        end
       end
     end
   end

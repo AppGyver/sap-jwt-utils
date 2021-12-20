@@ -12,6 +12,12 @@ gem "faraday"
 gem "jwt"
 gem "multi_json"
 
+# Mock HTTP requests at the low level
+gem "webmock"
+
+# Record test suite's HTTP interactions and replay them
+gem 'vcr'
+
 # Development dependencies below
 gem "byebug"
 gem "rake", "~> 13.0"
