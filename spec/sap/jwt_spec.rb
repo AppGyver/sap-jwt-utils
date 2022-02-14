@@ -239,9 +239,71 @@ RSpec.describe Sap::Jwt do
       context "when aud does not match" do
         it "raises Sap::Jwt::VerificationError" do
           VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
+            Timecop.freeze(now) do
+              expect do
+                described_class.verify_with_headers!(token, aud: "invalid-aud", uaadomain: uaadomain)
+              end.to raise_error(Sap::Jwt::AudienceValidationFailure, /Expected audience .* to match/)
+            end
+          end
+        end
+      end
+
+      describe "sap specific service broker clone audience" do
+        let(:my_aud) { "dev-btp-gyver!b37345" }
+
+        let(:payload) do
+          {
+            "aud" => [
+              payload_aud,
+              "openid"
+            ]
+          }
+        end
+        let(:header) { "example-headers" }
+
+        subject(:result) { described_class.verify_with_headers!(token, aud: my_aud, uaadomain: uaadomain) }
+
+        before do
+          allow(::JWT).to receive(:decode).and_return([payload, header])
+        end
+
+        context "with my audience as a sb clone suffix" do
+          let(:payload_aud) { "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345" }
+
+          it "should validate audience successfully" do
+            expect(result).to eq([payload, header])
+          end
+        end
+
+        context "with exact audience" do
+          let(:payload_aud) { "dev-btp-gyver!b37345" }
+
+          it "should validate audience successfully" do
+            expect(result).to eq([payload, header])
+          end
+        end
+
+        context "with a non-matching sb clone suffix" do
+          let(:payload_aud) do
+            "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345|dev-btp-gyver!b37345|something-else!b37345"
+          end
+
+          it "raises validation error" do
             expect do
-              described_class.verify_with_headers!(token, aud: "invalid-aud", uaadomain: uaadomain)
-            end.to raise_error(Sap::Jwt::VerificationError, /Invalid audience/)
+              result
+            end.to raise_error(Sap::Jwt::AudienceValidationFailure, /Expected audience .* to match .*/)
+          end
+        end
+
+        context "with a non-exact match" do
+          let(:payload_aud) do
+            "sb-fa26b89c-5c6b-47ff-8f02-7e215dc9c2d5!b37345"
+          end
+
+          it "raises validation error" do
+            expect do
+              result
+            end.to raise_error(Sap::Jwt::AudienceValidationFailure, /Expected audience .* to match .*/)
           end
         end
       end

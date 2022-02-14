@@ -106,7 +106,7 @@ module Sap
 
       options = {
         verify_iat: true,
-        verify_aud: true,
+        verify_aud: false, # Use validate_aud!() for service broker clone audiences
         aud: aud,
         algorithms: algorithms,
         jwks: ->(_opts) { fetch_jwks(jwks_uri) },
@@ -118,6 +118,13 @@ module Sap
         jwks_uri = parse_jku!(headers, payload, uaadomain)
 
         true
+      end
+
+      unless validate_aud!(payload, aud)
+        raise(
+          AudienceValidationFailure,
+          "Expected audience '#{aud}' to match exactly or with '|b' suffix to '#{payload["aud"]}'"
+        )
       end
 
       [payload, header]
@@ -258,9 +265,13 @@ module Sap
     # Because the client id is added to the list of audiences, you may find client ids of following
     # service instance tokens in the aud similar to "sb-d447781d-c010-4c19-af30-ed49097f22de!b446|xsapp!b4711".
     # In this case the audience matches in case it ends with "|xsapp!b4711".
-    private_class_method def self.validate_aud!(_payload, aud)
-      # TODO: Validate XSUAA specifics of the audience (the exact "aud" is already validated by JWT.decode)
-      true
+    private_class_method def self.validate_aud!(payload, aud)
+      payload["aud"].each do |a|
+        return true if a == aud
+        return true if a.end_with?(aud)
+      end
+
+      false
     end
 
     # See comments and reasoning at .validate_azp!
