@@ -92,7 +92,6 @@ RSpec.describe Sap::Jwt do
       end
 
       let(:client_id) { "sap-auth-playground!t30010" }
-      let(:aud) { client_id }
       let(:iss) { "http://sap-provisioning.localhost:8080/uaa/oauth/token" }
 
       # 2021-07-30T15:15:00
@@ -100,7 +99,7 @@ RSpec.describe Sap::Jwt do
 
       it "verifies jwt of server-to-server communication" do
         Timecop.freeze(issued_at) do
-          p, h = described_class.verify!(token, iss: iss, client_id: client_id, aud: aud, jwks: jwks_json)
+          p, h = described_class.verify!(token, iss: iss, client_id: client_id, jwks: jwks_json)
 
           expect(p).to eq payload
           expect(h).to eq header
@@ -112,7 +111,7 @@ RSpec.describe Sap::Jwt do
           allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
 
           expect do
-            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", jwks: "jwks_json")
           end.to raise_error(Sap::Jwt::VerificationError)
         end
       end
@@ -122,7 +121,7 @@ RSpec.describe Sap::Jwt do
           allow(::JWT).to receive(:decode).and_raise(JWT::ExpiredSignature)
 
           expect do
-            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", aud: "aud", jwks: "jwks_json")
+            described_class.verify!("invalid token", iss: "iss", client_id: "client_id", jwks: "jwks_json")
           end.to raise_error(Sap::Jwt::VerificationError)
         end
       end
@@ -190,13 +189,13 @@ RSpec.describe Sap::Jwt do
 
       let(:issued_at) { 1639741010 }
       let(:now) { Time.at(issued_at) }
-      let(:aud) { "dev-btp-gyver!b37345" }
+      let(:client_id) { "dev-btp-gyver!b37345" }
       let(:uaadomain) { "authentication.sap.hana.ondemand.com" }
 
       it "verifies jwt with jwks fetched from the header" do
         VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
           Timecop.freeze(now) do
-            p, h = described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
+            p, h = described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
 
             expect(p).to eq payload
             expect(h).to eq header
@@ -209,7 +208,7 @@ RSpec.describe Sap::Jwt do
           allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
 
           expect do
-            described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
+            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
           end.to raise_error(Sap::Jwt::VerificationError)
         end
       end
@@ -221,7 +220,7 @@ RSpec.describe Sap::Jwt do
 
         it "throws Sap::Jwt::VerificationError" do
           expect do
-            described_class.verify_with_headers!(token, aud: aud, uaadomain: uaadomain)
+            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
           end.to raise_error(Sap::Jwt::VerificationError)
 
           expect(::JWT).to have_received(:decode)
@@ -231,7 +230,7 @@ RSpec.describe Sap::Jwt do
       context "when uaadomain does not match with jwk url hostname" do
         it "raises Sap::Jwt::VerificationError" do
           expect do
-            described_class.verify_with_headers!(token, aud: aud, uaadomain: "something-else.local")
+            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: "something-else.local")
           end.to raise_error(Sap::Jwt::VerificationError, /JWK source '.+' does not match .+/)
         end
       end
@@ -241,7 +240,7 @@ RSpec.describe Sap::Jwt do
           VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
             Timecop.freeze(now) do
               expect do
-                described_class.verify_with_headers!(token, aud: "invalid-aud", uaadomain: uaadomain)
+                described_class.verify_with_headers!(token, client_id: "invalid-aud", uaadomain: uaadomain)
               end.to raise_error(Sap::Jwt::AudienceValidationFailure, /Expected audience .* to match/)
             end
           end
@@ -249,7 +248,7 @@ RSpec.describe Sap::Jwt do
       end
 
       describe "sap specific service broker clone audience" do
-        let(:my_aud) { "dev-btp-gyver!b37345" }
+        let(:client_id) { "dev-btp-gyver!b37345" } # "dev-btp-gyver!b37345"
 
         let(:payload) do
           {
@@ -261,7 +260,7 @@ RSpec.describe Sap::Jwt do
         end
         let(:header) { "example-headers" }
 
-        subject(:result) { described_class.verify_with_headers!(token, aud: my_aud, uaadomain: uaadomain) }
+        subject(:result) { described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain) }
 
         before do
           allow(::JWT).to receive(:decode).and_return([payload, header])

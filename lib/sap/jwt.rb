@@ -80,12 +80,11 @@ module Sap
     #   "iss"=> "https://appgyver-int.authentication.sap.hana.ondemand.com/oauth/token",
     #   "zid"=>"20f2417e-38ef-4007-9d66-d990b9c994ab",
     #   "aud"=>["openid", "sap-auth-playground!t30010"]}
-    def self.verify!(token, iss:, aud:, jwks:, client_id: nil, verify_iss: true, verify_aud: true, verify_iat: true, algorithms: ["RS256"])
+    def self.verify!(token, iss:, jwks:, client_id:, verify_iss: true, verify_iat: true, algorithms: ["RS256"])
       options = {
         verify_iss: verify_iss,
         verify_iat: verify_iat,
-        verify_aud: verify_aud,
-        aud: aud,
+        verify_aud: false, # validate_aud!() is used instead
         algorithms: algorithms,
         jwks: jwks,
         iss: iss
@@ -94,20 +93,19 @@ module Sap
       payload, header = ::JWT.decode(token, nil, true, options)
 
       validate_azp!(payload, authorized_party: client_id) if validate_azp?(payload, client_id)
-      validate_aud!(payload, aud)
+      validate_aud!(payload["aud"], client_id)
 
       [payload, header]
     rescue JWT::DecodeError => e
       raise VerificationError, e
     end
 
-    def self.verify_with_headers!(token, aud:, uaadomain:, algorithms: ["RS256"])
+    def self.verify_with_headers!(token, client_id:, uaadomain:, algorithms: ["RS256"])
       jwks_uri = nil
 
       options = {
         verify_iat: true,
-        verify_aud: false, # Use validate_aud!() for service broker clone audiences
-        aud: aud,
+        verify_aud: false, # validate_aud!() is used instead
         algorithms: algorithms,
         jwks: ->(_opts) { fetch_jwks(jwks_uri) },
         verify_iss: false, # trusted value of issuer is not available with header verification
@@ -120,10 +118,10 @@ module Sap
         true
       end
 
-      unless validate_aud!(payload, aud)
+      unless validate_aud!(payload["aud"], client_id)
         raise(
           AudienceValidationFailure,
-          "Expected audience '#{aud}' to match exactly or with '|b' suffix to '#{payload["aud"]}'"
+          "Expected audience '#{client_id}' to match exactly or with '|b' suffix to '#{payload["aud"]}'"
         )
       end
 
@@ -265,12 +263,13 @@ module Sap
     # Because the client id is added to the list of audiences, you may find client ids of following
     # service instance tokens in the aud similar to "sb-d447781d-c010-4c19-af30-ed49097f22de!b446|xsapp!b4711".
     # In this case the audience matches in case it ends with "|xsapp!b4711".
-    private_class_method def self.validate_aud!(payload, aud)
+    private_class_method def self.validate_aud!(token_aud, trusted_client_id)
       trusted_separator = "|"
+      trusted_suffix = "#{trusted_separator}#{trusted_client_id}"
 
-      payload["aud"].each do |a|
-        return true if a == aud
-        return true if a.end_with?(trusted_separator + aud)
+      token_aud.each do |a|
+        return true if a == trusted_client_id
+        return true if a.end_with?(trusted_suffix)
       end
 
       false
