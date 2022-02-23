@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "jwt/version"
+require_relative "jwt/redis_store"
 
 require "faraday"
 require "jwt"
@@ -14,6 +15,8 @@ require "multi_json"
 module Sap
   module Jwt
     class VerificationError < StandardError; end
+
+    class FetchError < VerificationError; end
 
     class FetchJwksError < VerificationError; end
 
@@ -105,14 +108,16 @@ module Sap
     # verify_with_headers! decodes and verifies the token using JWKs from the JWT headers.
     # In this case issuer is not verified, instead the JWK information from headers is trusted
     # only if the JWK issuer's hostname matches with the JKU hostname. See comments at parse_jku!().
-    def self.verify_with_headers!(token, client_id:, uaadomain:, algorithms: ["RS256"])
+    #
+    # Dynamically retrieved OpenID Metadata and JWKs are cached in Redis.
+    def self.verify_with_headers!(token, redis:, client_id:, uaadomain:, algorithms: ["RS256"])
       jwks_uri = nil
 
       options = {
         verify_iat: true,
         verify_aud: false, # validate_aud!() is used instead
         algorithms: algorithms,
-        jwks: ->(_opts) { fetch_jwks(jwks_uri) },
+        jwks: ->(_opts) { fetch_jwks(redis: redis, url: jwks_uri) },
         verify_iss: false, # trusted value of issuer is not available with header verification
         iss: nil
       }
@@ -133,6 +138,13 @@ module Sap
       [payload, header]
     rescue JWT::DecodeError => e
       raise VerificationError, e
+    rescue TypeError => e
+      msg = <<-ERROR.squish
+        TypeError from JWT decode, possibly cached data in Redis is not JSON?
+        Exception message: #{e}
+      ERROR
+
+      raise VerificationError, msg
     end
 
     # Fetch one or multiple JWKs which are used for verifying the token signature.
@@ -145,27 +157,15 @@ module Sap
     # and not customer-controlled domains.
     #
     # https://github.wdf.sap.corp/pages/CPSecurity/Knowledge-Base/03_ApplicationSecurity/TokenValidation/#get-token-keys-url-jwks-url
-    def self.fetch_jwks(url)
-      raise FetchJwksError, "Missing JWK URL: Could not fetch JWKs" unless url
-
-      response = Faraday.get(url, request_headers)
-
-      raise FetchJwksError, "Failed to fetch #{url}" unless response.success?
-
-      MultiJson.load(response.body, symbolize_keys: true)
+    def self.fetch_jwks(redis:, url:)
+      Sap::Jwt::RedisStore.fetch(redis: redis, kind: "jwks", url: url)
     end
 
     # Authentication endpoint info (tenant specific)
     #
     # https://TENANT.authentication.sap.hana.ondemand.com/.well-known/openid-configuration
-    def self.fetch_openid_configuration(url)
-      raise FetchOpenIdConfigurationError, "Missing OpenID Configuration metadata URL" unless url
-
-      response = Faraday.get(url, request_headers)
-
-      raise FetchOpenIdConfigurationError, "Failed to fetch #{url}" unless response.success?
-
-      MultiJson.load(response.body, symbolize_keys: true)
+    def self.fetch_openid_configuration(redis:, url:)
+      Sap::Jwt::RedisStore.fetch(redis: redis, kind: "openid-configuration", url: url)
     end
 
     # Fetch JWT User Token which using the UAA specific "urn:ietf:params:oauth:grant-type:jwt-bearer"
