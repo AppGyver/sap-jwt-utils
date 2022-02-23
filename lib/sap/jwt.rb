@@ -80,6 +80,8 @@ module Sap
     #   "iss"=> "https://appgyver-int.authentication.sap.hana.ondemand.com/oauth/token",
     #   "zid"=>"20f2417e-38ef-4007-9d66-d990b9c994ab",
     #   "aud"=>["openid", "sap-auth-playground!t30010"]}
+    #
+    # verify! decodes and verifies the token using JWKs, issuer and cliend_id passed as parameters.
     def self.verify!(token, iss:, jwks:, client_id:, verify_iss: true, verify_iat: true, algorithms: ["RS256"])
       options = {
         verify_iss: verify_iss,
@@ -100,6 +102,9 @@ module Sap
       raise VerificationError, e
     end
 
+    # verify_with_headers! decodes and verifies the token using JWKs from the JWT headers.
+    # In this case issuer is not verified, instead the JWK information from headers is trusted
+    # only if the JWK issuer's hostname matches with the JKU hostname. See comments at parse_jku!().
     def self.verify_with_headers!(token, client_id:, uaadomain:, algorithms: ["RS256"])
       jwks_uri = nil
 
