@@ -3,6 +3,7 @@
 require "sap/jwt"
 require "timecop"
 require "webmock/rspec"
+require "mock_redis"
 require "vcr"
 
 RSpec.configure do |config|
@@ -17,6 +18,14 @@ RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
   end
+
+  # Run specs in random order to surface order dependencies. If you find an
+  # order dependency and want to debug it, you can fix the order by providing
+  # the seed, which is printed after each run.
+  #     --seed 1234
+  config.order = :random
+
+  config.filter_run_when_matching :focus
 
   Timecop.safe_mode = true
 end

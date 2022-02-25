@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Sap::Jwt do
+  let(:mock_redis) { MockRedis.new }
   let(:site) { "https://subdomain-something.example.com" }
   let(:path) { "/.well-known/test-openid-configuration" }
   let(:oidc_url) { [site, path].join }
@@ -195,7 +196,7 @@ RSpec.describe Sap::Jwt do
       it "verifies jwt with jwks fetched from the header" do
         VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
           Timecop.freeze(now) do
-            p, h = described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
+            p, h = described_class.verify_with_headers!(token, redis: mock_redis, client_id: client_id, uaadomain: uaadomain)
 
             expect(p).to eq payload
             expect(h).to eq header
@@ -208,7 +209,7 @@ RSpec.describe Sap::Jwt do
           allow(::JWT).to receive(:decode).and_raise(JWT::DecodeError)
 
           expect do
-            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
+            described_class.verify_with_headers!(token, redis: mock_redis, client_id: client_id, uaadomain: uaadomain)
           end.to raise_error(Sap::Jwt::VerificationError)
         end
       end
@@ -220,7 +221,7 @@ RSpec.describe Sap::Jwt do
 
         it "throws Sap::Jwt::VerificationError" do
           expect do
-            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain)
+            described_class.verify_with_headers!(token, redis: mock_redis, client_id: client_id, uaadomain: uaadomain)
           end.to raise_error(Sap::Jwt::VerificationError)
 
           expect(::JWT).to have_received(:decode)
@@ -230,7 +231,9 @@ RSpec.describe Sap::Jwt do
       context "when uaadomain does not match with jwk url hostname" do
         it "raises Sap::Jwt::VerificationError" do
           expect do
-            described_class.verify_with_headers!(token, client_id: client_id, uaadomain: "something-else.local")
+            described_class.verify_with_headers!(
+              token, redis: mock_redis, client_id: client_id, uaadomain: "something-else.local"
+            )
           end.to raise_error(Sap::Jwt::VerificationError, /JWK source '.+' does not match .+/)
         end
       end
@@ -240,7 +243,9 @@ RSpec.describe Sap::Jwt do
           VCR.use_cassette("jwt_token_keys/dev-btp-gyver") do
             Timecop.freeze(now) do
               expect do
-                described_class.verify_with_headers!(token, client_id: "invalid-aud", uaadomain: uaadomain)
+                described_class.verify_with_headers!(
+                  token, redis: mock_redis, client_id: "invalid-aud", uaadomain: uaadomain
+                )
               end.to raise_error(Sap::Jwt::AudienceValidationFailure, /Expected audience .* to match/)
             end
           end
@@ -260,7 +265,11 @@ RSpec.describe Sap::Jwt do
         end
         let(:header) { "example-headers" }
 
-        subject(:result) { described_class.verify_with_headers!(token, client_id: client_id, uaadomain: uaadomain) }
+        subject(:result) do
+          described_class.verify_with_headers!(
+            token, redis: mock_redis, client_id: client_id, uaadomain: uaadomain
+          )
+        end
 
         before do
           allow(::JWT).to receive(:decode).and_return([payload, header])
@@ -334,22 +343,8 @@ RSpec.describe Sap::Jwt do
       end
 
       it "returns json" do
-        expect(described_class.fetch_jwks(jwks_url))
+        expect(described_class.fetch_jwks(redis: mock_redis, url: jwks_url))
           .to eq(body_parsed)
-      end
-    end
-
-    context "when failure" do
-      before do
-        allow(response)
-          .to receive(:success?)
-          .and_return false
-      end
-
-      it "raises FetchJwksError" do
-        expect do
-          described_class.fetch_jwks(jwks_url)
-        end.to raise_error Sap::Jwt::FetchJwksError
       end
     end
   end
@@ -378,22 +373,8 @@ RSpec.describe Sap::Jwt do
       end
 
       it "returns json" do
-        expect(described_class.fetch_openid_configuration(oidc_url))
+        expect(described_class.fetch_openid_configuration(redis: mock_redis, url: oidc_url))
           .to eq(body_parsed)
-      end
-    end
-
-    context "with failure" do
-      before do
-        allow(response)
-          .to receive(:success?)
-          .and_return false
-      end
-
-      it "raises FetchOpenIdConfigurationError" do
-        expect do
-          described_class.fetch_openid_configuration(oidc_url)
-        end.to raise_error Sap::Jwt::FetchOpenIdConfigurationError
       end
     end
   end
