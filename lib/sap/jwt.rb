@@ -213,7 +213,7 @@ module Sap
       unless jku.hostname == iss.hostname
         raise VerificationError, <<-ERROR.squish
           JWK issuer hostname '#{iss.hostname}'
-          does not match JWK source hostname '#{jwk.hostname}'
+          does not match JWK source hostname '#{jku.hostname}'
         ERROR
       end
 
