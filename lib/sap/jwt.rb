@@ -196,25 +196,18 @@ module Sap
     end
 
     # Parse JWK uri from JWT headers.
+    # Reference implementation in Java here:
+    # https://github.com/SAP/cloud-security-xsuaa-integration/blob/acbfe8f38dd1e1e7c390781adb2ec9ed0ef839bb/java-security/src/main/java/com/sap/cloud/security/token/validation/validators/XsuaaJkuValidator.java#L43
     # Raise error
-    # - if hostname for JWK source (jku) does not match hostname of the token's issuer (iss)
     # - if JWK source (jku) hostname is outside of trusted uaadomain (originally provided by XSUAA)
     #
     # Returns JWK source url as string, for example
     # => "https://sub-dev-btp-gyver.authentication.sap.hana.ondemand.com/token_keys"
     private_class_method def self.parse_jku!(headers, payload, uaadomain)
       jku = URI.parse(headers["jku"])
-      iss = URI.parse(payload["iss"])
 
       unless jku.hostname.end_with?(uaadomain)
         raise VerificationError, "JWK source '#{jku}' does not match tenant's uaadomain '#{uaadomain}'"
-      end
-
-      unless jku.hostname == iss.hostname
-        raise VerificationError, <<-ERROR.squish
-          JWK issuer hostname '#{iss.hostname}'
-          does not match JWK source hostname '#{jku.hostname}'
-        ERROR
       end
 
       jku.to_s
